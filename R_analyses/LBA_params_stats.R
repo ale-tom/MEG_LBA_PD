@@ -1,14 +1,10 @@
-library(R.matlab)
-library(tidyverse)
-library(magrittr)
-library(emmeans)
-library(patchwork)
-library(multcomp)
-library(bbplot)
+# Initialise
+
+pacman::p_load('R.matlab','tidyverse','magrittr','emmeans','patchwork','multcomp','bbplot')
 
 set.seed(17)
 
-# ---- Load and prepare the data ----
+# Load and prepare the data ----
 
 m <- readMat(here::here('data','PD_model_pars.mat'))
 m = m$cellV
@@ -37,9 +33,9 @@ df_lba_par <- within(df_lba_par, {
   Group  <- factor(Group)
 })
 
-# ----Mixed-design repeted-measures ANOVA on LBA parameters----
+# Mixed-design rm anova with group (ctr PD) as between factor and uncertainty (Perceptual Action) as within factor ----
 
-# Mixed-design repeated measures ANOVA - Frequentist & Bayesian
+# Frequentist & Bayesian
 (v_mod<-afex::aov_ez('PID','V',df_lba_par,within = c('PU','AU'), between = 'Group',factorize = TRUE))
 bf_v <- BayesFactor::anovaBF(V~Group*AU*PU + PID,whichRandom = 'PID',data = df_lba_par,)
 
@@ -49,8 +45,15 @@ bf_au_grp <- bf_v[17]/bf_v[12]
 
 # Post-hoc tests for AU*Group interaction
 (inter_AU_group <- emmeans(v_mod,~AU*Group))
-int_au<-summary(as.glht(pairs(inter_AU_group)),test=adjusted('bonferroni'))
+pairs(emmeans(inter_AU_group, ~ Group | AU), adjust='bonferroni')
 
+# AU = low:
+#   contrast estimate    SE   df t.ratio p.value
+# Ctr - PD    1.785 0.605 50.1 2.952   0.0048 
+# 
+# AU = high:
+#   contrast estimate    SE   df t.ratio p.value
+# Ctr - PD    0.602 0.605 50.1 0.995   0.3245 
 
 # Define the contrasts
 contrasts_list <- list(
@@ -68,7 +71,7 @@ summary(interaction_contrast_result, test=adjusted('bonferroni'))
 
 
 
-# ---- Figure 7 (right panel) ------
+# Figure 7 (right panel) ----
 
 # Prepare for plots
 
@@ -142,6 +145,3 @@ plot_PU<-ggplot(data=plot_data_PU, aes(x=Group, y=Est,fill=Group)) +
 
 plot_PU + plot_AU
 
-
-sjPlot::save_plot(here::here('Model','figures','AccrateInteractions_single_points.jpg'),fig=last_plot(),width =13, height = 10, dpi = 300)
-dev.off()
